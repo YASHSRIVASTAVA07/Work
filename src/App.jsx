@@ -1,79 +1,76 @@
-import React, { useState } from 'react';
-import Navbar from './components/Navbar';
-import Sidebar from './components/Sidebar';
-import MapPage from './components/MapPage';
-import ChartPage from './components/ChartPage';
-import LocationSearch from './components/LocationSearch';
-import Footer from './components/Footer';
-import Chatbot from './components/Chatbot';
+import React, { useState } from "react";
+import Sidebar from "./components/Sidebar";
+import Topbar from "./components/Topbar";
+import MapTypeDropdown from "./components/MapTypeDropdown";
+import ChartDropdown from "./components/ChartDropdown"; // 👈 new import
+import MainPanel from "./components/MainPanel";
+import ActionsPanel from "./components/ActionsPanel";
+import ChatbotSidebar from "./components/ChatbotSidebar";
+import "./App.css";
 
-const App = () => {
-  const [showChatbot, setShowChatbot] = useState(false);
-  const [activeTab, setActiveTab] = useState('map');
+export default function App() {
+  const [tab, setTab] = useState("MAP");
+  const [mapTypeOpen, setMapTypeOpen] = useState(false);
+  const [mapType, setMapType] = useState("Map Type");
+
+  const [chartTypeOpen, setChartTypeOpen] = useState(false); // 👈 new state for chart dropdown open/close
+  const [chartType, setChartType] = useState("Chart Type"); // 👈 selected chart type
+
+  const [chatbotOpen, setChatbotOpen] = useState(false);
+  const [messages, setMessages] = useState([
+    { from: "bot", text: "Hello! How can I help you today?" },
+    { from: "user", text: "I need help with the map visualization" },
+    { from: "bot", text: "I can help you with that! What specific information are you looking for?" }
+  ]);
+
+  const handleSend = (msg) => {
+    if (msg) setMessages([...messages, { from: "user", text: msg }]);
+  };
 
   return (
-    <div style={{
-      background: '#181818',
-      color: 'white',
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-    }}>
-      <Navbar onToggleChatbot={() => setShowChatbot(!showChatbot)} />
-      <div style={{flex: 1, display: 'flex'}}>
-        <Sidebar />
-        <main style={{
-          flex: 1,
-          padding: '15px',
-          transition: 'margin 0.3s ease-in-out',
-          marginRight: showChatbot ? '320px' : '0',
-          overflowY: 'auto'
-        }}>
-          <div style={{marginBottom: 12}}>
-            <button
-              onClick={() => setActiveTab('map')}
-              style={{
-                marginRight: 10,
-                padding: '8px 20px',
-                borderRadius: 6,
-                border: 'none',
-                background: activeTab === 'map' ? '#333' : '#222',
-                color: '#eee',
-                cursor: 'pointer',
-              }}
-            >
-              MAP
-            </button>
-            <button
-              onClick={() => setActiveTab('chart')}
-              style={{
-                padding: '8px 20px',
-                borderRadius: 6,
-                border: 'none',
-                background: activeTab === 'chart' ? '#333' : '#222',
-                color: '#eee',
-                cursor: 'pointer',
-              }}
-            >
-              Chart
-            </button>
+    <div className="dash-root">
+      <Sidebar />
+      <div className="dash-main">
+        <Topbar tab={tab} setTab={setTab} onChatbot={() => setChatbotOpen(true)} />
+        <div className="dash-content">
+          <div className="left-space">
+            {tab === "MAP" && (
+              <MapTypeDropdown
+                open={mapTypeOpen}
+                setOpen={setMapTypeOpen}
+                setMapType={setMapType}
+                mapType={mapType}
+              />
+            )}
+
+            {tab === "CHART" && ( // 👈 Chart dropdown appears only when CHART tab is active
+              <ChartDropdown
+                open={chartTypeOpen}
+                setOpen={setChartTypeOpen}
+                chartType={chartType}
+                setChartType={setChartType}
+              />
+            )}
+
+            <MainPanel tab={tab} chartType={chartType} />
           </div>
-          <div style={{
-            backgroundColor: '#232323',
-            borderRadius: 10,
-            padding: 20,
-            boxShadow: '0 0 15px rgba(0,0,0,0.6)'
-          }}>
-            {activeTab === 'map' ? <MapPage /> : <ChartPage />}
-          </div>
-          <LocationSearch />
-        </main>
-        {showChatbot && <Chatbot />}
+
+          <ActionsPanel
+            chatbotOpen={chatbotOpen}
+            setChatbotOpen={setChatbotOpen}
+            chartType={chartType}
+            setChartType={setChartType}
+          />
+
+          {chatbotOpen && (
+            <ChatbotSidebar
+              messages={messages}
+              setChatbotOpen={setChatbotOpen}
+              handleSend={handleSend}
+            />
+          )}
+        </div>
       </div>
-      <Footer />
     </div>
   );
-};
-
-export default App;
+}

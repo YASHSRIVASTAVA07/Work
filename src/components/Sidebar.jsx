@@ -1,66 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
+import { FiMapPin, FiBarChart2 } from "react-icons/fi";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
-const Sidebar = () => {
-  const [latDropdownOpen, setLatDropdownOpen] = useState(false);
-  const [otherDropdownOpen, setOtherDropdownOpen] = useState(false);
+export default function Sidebar() {
+  const [latOpen, setLatOpen] = useState(false);
+  const [otherOpen, setOtherOpen] = useState(false);
+
+  const [selectedDate, setSelectedDate] = useState(null);
 
   return (
-    <aside style={{
-      width: 220,
-      backgroundColor: '#212121cc',
-      paddingTop: 60,
-      minHeight: '100vh',
-      borderRight: '1px solid #333',
-      color: 'white',
-      userSelect: 'none'
-    }}>
-      <div style={{ padding: 10 }}>
-        <button
-          onClick={() => setLatDropdownOpen(!latDropdownOpen)}
-          style={{
-            width: '100%',
-            padding: '12px',
-            backgroundColor: '#262626',
-            border: 'none',
-            color: 'white',
-            borderRadius: 6,
-            marginBottom: 6,
-            textAlign: 'left',
-            cursor: 'pointer'
-          }}
-        >Lat/Long ▼</button>
-        {latDropdownOpen && (
-          <div style={{ backgroundColor: '#191919', borderRadius: 6, padding: '8px' }}>
-            <div style={{ padding: '6px 0' }}>Latitude 1</div>
-            <div style={{ padding: '6px 0' }}>Latitude 2</div>
-            <div style={{ padding: '6px 0' }}>Longitude 1</div>
+    <aside className="side-glass">
+      <div className="dropdown-group">
+        <button className="dropdown-btn" onClick={() => setLatOpen(v => !v)}>
+          <FiMapPin style={{ marginRight: 8 }} />
+          Lat/Long
+          <span className={`carret ${latOpen ? "open" : ""}`}>▼</span>
+        </button>
+        {latOpen && (
+          <div className="dropdown-menu">
+            <label>
+              Latitude
+              <input className="glass-input" placeholder="Enter latitude" />
+            </label>
+            <label>
+              Longitude
+              <input className="glass-input" placeholder="Enter longitude" />
+            </label>
+          </div>
+        )}
+
+        <button className="dropdown-btn" onClick={() => setOtherOpen(v => !v)}>
+          <FiBarChart2 style={{ marginRight: 8 }} />
+          Other Data
+          <span className={`carret ${otherOpen ? "open" : ""}`}>▼</span>
+        </button>
+        {otherOpen && (
+          <div className="dropdown-menu">
+            <label>
+  Time Range
+  <DatePicker
+    selected={selectedDate}
+    onChange={(date) => setSelectedDate(date)}
+    className="glass-input"
+    placeholderText="Select a date"
+    dateFormat="EEE, MMM d, yyyy"  // Example: Mon, Nov 17, 2018
+    showMonthDropdown              // 👈 Month dropdown
+    showYearDropdown               // 👈 Year dropdown
+    dropdownMode="select"          // 👈 Makes them real dropdowns
+  />
+</label>
+
           </div>
         )}
       </div>
-      <div style={{ padding: 10 }}>
-        <button
-          onClick={() => setOtherDropdownOpen(!otherDropdownOpen)}
-          style={{
-            width: '100%',
-            padding: '12px',
-            backgroundColor: '#262626',
-            border: 'none',
-            color: 'white',
-            borderRadius: 6,
-            marginBottom: 6,
-            textAlign: 'left',
-            cursor: 'pointer'
-          }}
-        >Other Data ▼</button>
-        {otherDropdownOpen && (
-          <div style={{ backgroundColor: '#191919', borderRadius: 6, padding: '8px' }}>
-            <div style={{ padding: '6px 0' }}>Option A</div>
-            <div style={{ padding: '6px 0' }}>Option B</div>
-          </div>
-        )}
+      <div className="side-help-btn">
+        <span></span>
       </div>
     </aside>
   );
-};
-
-export default Sidebar;
+}
