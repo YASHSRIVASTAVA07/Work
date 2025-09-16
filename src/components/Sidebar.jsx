@@ -1,29 +1,102 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FiMapPin, FiBarChart2, FiAnchor } from "react-icons/fi";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import Papa from "papaparse";
 
-// Sample data matching your format
-const sampleData = [
-  { id: 1002, float_id: 'b1901701', juld: '57:10.0', latitude: -33.71372, longitude: 57.5094, pres: 1.1599999, temp: 22.277999, psal: 35.888000 },
-  { id: 1181, float_id: 'b1901712', juld: '45:08.0', latitude: 15.89995, longitude: -20.38539, pres: 1.1919999, temp: 28.481000, psal: 35.611999 },
-  { id: 1182, float_id: 'b1901712', juld: '39:09.0', latitude: 15.98729, longitude: -20.37144, pres: 1.0800000, temp: 29.138000, psal: 35.731998 },
-  { id: 515, float_id: 'b1901514', juld: '32:01.0', latitude: 1.625, longitude: 44.639, pres: 0, temp: 26.208000, psal: 0.0120000 },
-  { id: 516, float_id: 'b1901514', juld: '29:17.0', latitude: 1.624, longitude: 44.639, pres: -0.2000000, temp: 27.697999, psal: 0.0130000 },
-  { id: 1229, float_id: 'b1901712', juld: '33:04.0', latitude: 17.8523, longitude: -22.64848, pres: 1.1200000, temp: 22.166999, psal: 36.435001 },
-  { id: 517, float_id: 'b1901514', juld: '17:37.0', latitude: 1.626, longitude: 44.643, pres: 0, temp: 33.118000, psal: 0.0149999 },
-  { id: 2788, float_id: 'b1901787', juld: '27:17.3', latitude: -18.33851, longitude: 65.47587, pres: 1.2, temp: 25.957000, psal: 34.989799 },
-  { id: 2789, float_id: 'b1901787', juld: '09:59.0', latitude: -20.23978, longitude: 64.8024, pres: 1.0399999, temp: 24.379999, psal: 35.045398 },
-  { id: 201, float_id: 'b1901443', juld: '57:46.0', latitude: -3.624, longitude: 74.178, pres: 4.3000001, temp: 29.743000, psal: 35.013000 }
-];
-
-export default function Sidebar({ onDataSubmit }) {
+export default function Sidebar({ onDataSubmit, csvFilename }) {
   const [formData, setFormData] = useState({
     latitude: "",
     longitude: "",
     timeRange: null,
     floatId: ""
   });
+  
+  const [csvData, setCsvData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Load CSV data when component mounts
+  useEffect(() => {
+    if (csvFilename) {
+      loadCSVData(csvFilename);
+    }
+  }, [csvFilename]);
+
+  const loadCSVData = async (filename) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Try multiple methods to read the CSV file
+      let csvContent;
+      
+      // Method 1: Try window.fs.readFile if available
+      if (window.fs && window.fs.readFile) {
+        try {
+          csvContent = await window.fs.readFile(filename, { encoding: 'utf8' });
+        } catch (fsError) {
+          console.log('window.fs.readFile failed, trying fetch method');
+          throw fsError;
+        }
+      } else {
+        throw new Error('window.fs not available');
+      }
+      
+      // Parse CSV with Papa Parse
+      Papa.parse(csvContent, {
+        header: true,
+        skipEmptyLines: true,
+        dynamicTyping: true,
+        complete: (results) => {
+          if (results.errors.length > 0) {
+            console.warn('CSV parsing warnings:', results.errors);
+          }
+          setCsvData(results.data);
+          setLoading(false);
+        },
+        error: (error) => {
+          console.error('CSV parsing error:', error);
+          setError('Failed to parse CSV file');
+          setLoading(false);
+        }
+      });
+    } catch (err) {
+      console.log('Trying fetch method as fallback...');
+      
+      // Fallback: Try using fetch to load the file from public folder
+      try {
+        const response = await fetch(filename);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const csvContent = await response.text();
+        
+        // Parse CSV with Papa Parse
+        Papa.parse(csvContent, {
+          header: true,
+          skipEmptyLines: true,
+          dynamicTyping: true,
+          complete: (results) => {
+            if (results.errors.length > 0) {
+              console.warn('CSV parsing warnings:', results.errors);
+            }
+            setCsvData(results.data);
+            setLoading(false);
+          },
+          error: (error) => {
+            console.error('CSV parsing error:', error);
+            setError('Failed to parse CSV file');
+            setLoading(false);
+          }
+        });
+      } catch (fetchErr) {
+        console.error('Both file reading methods failed:', err, fetchErr);
+        setError(`Failed to read CSV file. Please ensure the file exists at: ${filename}`);
+        setLoading(false);
+      }
+    }
+  };
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -32,39 +105,106 @@ export default function Sidebar({ onDataSubmit }) {
     }));
   };
 
+  // Function to randomly select data points from a column
+  const getRandomDataPoints = (columnData, count = 10) => {
+    if (!Array.isArray(columnData)) return [];
+    
+    const validData = columnData.filter(value => 
+      value !== null && 
+      value !== undefined && 
+      value !== '' && 
+      !isNaN(value)
+    );
+    
+    if (validData.length === 0) return [];
+    
+    // If we have fewer valid data points than requested, return all
+    if (validData.length <= count) {
+      return validData;
+    }
+    
+    // Randomly select data points
+    const shuffled = [...validData].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, count);
+  };
+
+  // Function to parse multiple data points from a column (assuming they're comma-separated or similar)
+  const parseMultipleDataPoints = (dataString) => {
+    if (typeof dataString === 'number') {
+      return [dataString];
+    }
+    
+    if (typeof dataString === 'string') {
+      // Try to split by common separators
+      const separators = [',', ';', '|', ' '];
+      for (const sep of separators) {
+        if (dataString.includes(sep)) {
+          return dataString.split(sep)
+            .map(val => parseFloat(val.trim()))
+            .filter(val => !isNaN(val));
+        }
+      }
+      
+      // If no separators found, try to parse as single number
+      const parsed = parseFloat(dataString);
+      return isNaN(parsed) ? [] : [parsed];
+    }
+    
+    return [];
+  };
+
   const handleSubmit = () => {
     if (!formData.latitude || !formData.longitude || !formData.timeRange) {
       alert("Please fill all the * columns");
       return;
     }
-    
-    // Filter data based on form inputs
-    let filteredData = sampleData;
-    
-    if (formData.floatId) {
-      filteredData = filteredData.filter(item => 
-        item.float_id.toLowerCase().includes(formData.floatId.toLowerCase())
-      );
+
+    if (csvData.length === 0) {
+      alert("No CSV data available");
+      return;
     }
+
+    // Randomly select one row from the CSV
+    const randomRowIndex = Math.floor(Math.random() * csvData.length);
+    const selectedRow = csvData[randomRowIndex];
     
-    // For demo purposes, we'll use lat/long to filter nearby data
-    const lat = parseFloat(formData.latitude);
-    const lng = parseFloat(formData.longitude);
-    
-    if (!isNaN(lat) && !isNaN(lng)) {
-      filteredData = filteredData.filter(item => {
-        const latDiff = Math.abs(item.latitude - lat);
-        const lngDiff = Math.abs(item.longitude - lng);
-        return latDiff < 50 && lngDiff < 50; // Within 50 degrees for demo
-      });
-    }
-    
-    // If no data found nearby, return all data for demo
-    if (filteredData.length === 0) {
-      filteredData = sampleData;
-    }
-    
-    onDataSubmit(filteredData, formData);
+    console.log('Selected random row:', selectedRow);
+
+    // Create the data structure to pass to parent component
+    const submissionData = {
+      selectedRow: selectedRow,
+      formData: formData,
+      getChartData: (chartType) => {
+        let columnName;
+        switch (chartType) {
+          case 'Temperature':
+            columnName = 'temp';
+            break;
+          case 'Salinity':
+            columnName = 'psal';
+            break;
+          case 'Pressure':
+            columnName = 'pres';
+            break;
+          default:
+            columnName = 'temp';
+        }
+
+        if (!selectedRow[columnName]) {
+          console.warn(`Column ${columnName} not found in selected row`);
+          return [];
+        }
+
+        // Parse and get random data points from the selected column
+        const allDataPoints = parseMultipleDataPoints(selectedRow[columnName]);
+        const randomDataPoints = getRandomDataPoints(allDataPoints, 10);
+        
+        console.log(`Random ${chartType} data points:`, randomDataPoints);
+        return randomDataPoints;
+      }
+    };
+
+    onDataSubmit(submissionData);
   };
 
   const isFormValid = formData.latitude && formData.longitude && formData.timeRange;
@@ -72,6 +212,20 @@ export default function Sidebar({ onDataSubmit }) {
   return (
     <aside className="side-glass">
       <div className="sidebar-form">
+        {error && (
+          <div className="error-message">
+            {error}
+          </div>
+        )}
+        
+        {loading && (
+          <div className="loading-message">
+            Loading CSV data...
+          </div>
+        )}
+
+        
+
         <div className="form-group">
           <label className="form-label">
             <FiMapPin style={{ marginRight: 8 }} />
@@ -96,7 +250,7 @@ export default function Sidebar({ onDataSubmit }) {
             placeholder="Enter longitude"
             value={formData.longitude}
             onChange={(e) => handleInputChange('longitude', e.target.value)}
-          />
+          />  
         </div>
 
         <div className="form-group">
@@ -136,8 +290,8 @@ export default function Sidebar({ onDataSubmit }) {
           </p>
           <button 
             type="button" 
-            className={`enter-button ${isFormValid ? 'active' : 'disabled'}`}
-            disabled={!isFormValid}
+            className={`enter-button ${isFormValid && csvData.length > 0 ? 'active' : 'disabled'}`}
+            disabled={!isFormValid || csvData.length === 0}
             onClick={handleSubmit}
           >
             Enter
@@ -230,6 +384,35 @@ export default function Sidebar({ onDataSubmit }) {
           background: rgba(255, 255, 255, 0.1);
           color: rgba(255, 255, 255, 0.4);
           cursor: not-allowed;
+        }
+
+        .error-message {
+          background: rgba(220, 38, 38, 0.1);
+          border: 1px solid rgba(220, 38, 38, 0.3);
+          border-radius: 8px;
+          padding: 12px;
+          color: #fca5a5;
+          font-size: 14px;
+        }
+
+        .loading-message {
+          background: rgba(59, 130, 246, 0.1);
+          border: 1px solid rgba(59, 130, 246, 0.3);
+          border-radius: 8px;
+          padding: 12px;
+          color: #93c5fd;
+          font-size: 14px;
+          text-align: center;
+        }
+
+        .csv-status {
+          background: rgba(34, 197, 94, 0.1);
+          border: 1px solid rgba(34, 197, 94, 0.3);
+          border-radius: 8px;
+          padding: 8px 12px;
+          color: #86efac;
+          font-size: 12px;
+          text-align: center;
         }
       `}</style>
     </aside>

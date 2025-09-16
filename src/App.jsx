@@ -16,10 +16,12 @@ export default function App() {
   const [chartTypeOpen, setChartTypeOpen] = useState(false);
   const [chartType, setChartType] = useState("Temperature"); // Changed default to Temperature
 
-  // New states for chart data integration
+  // Updated states for chart data integration
   const [chartData, setChartData] = useState([]);
   const [hasChartData, setHasChartData] = useState(false);
   const [formData, setFormData] = useState({});
+  const [selectedRow, setSelectedRow] = useState(null);
+  const [submissionData, setSubmissionData] = useState(null);
 
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -32,19 +34,50 @@ export default function App() {
     if (msg) setMessages([...messages, { from: "user", text: msg }]);
   };
 
-  // New function to handle data submission from sidebar
-  const handleDataSubmit = (data, submittedFormData) => {
-    setChartData(data);
+  // Updated function to handle data submission from sidebar
+  const handleDataSubmit = (submissionDataFromSidebar) => {
+    console.log('Received submission data:', submissionDataFromSidebar);
+    
+    // Store the submission data so we can use getChartData later
+    setSubmissionData(submissionDataFromSidebar);
+    
+    // Set the selected row info
+    setSelectedRow(submissionDataFromSidebar.selectedRow);
+    
+    // Set form data
+    setFormData(submissionDataFromSidebar.formData);
+    
+    // Get initial chart data based on current chart type
+    const initialChartData = submissionDataFromSidebar.getChartData(chartType);
+    setChartData(initialChartData);
     setHasChartData(true);
-    setFormData(submittedFormData);
-    setTab("CHART"); // Auto-switch to CHART tab when data is submitted
-    console.log("Data submitted:", data);
-    console.log("Form data:", submittedFormData);
+    
+    // Auto-switch to CHART tab when data is submitted
+    setTab("CHART");
+    
+    console.log(`Initial ${chartType} data:`, initialChartData);
+    console.log("Selected row:", submissionDataFromSidebar.selectedRow);
+    console.log("Form data:", submissionDataFromSidebar.formData);
+  };
+
+  // Updated function to handle chart type changes
+  const handleChartTypeChange = (newChartType) => {
+    setChartType(newChartType);
+    
+    // If we have submission data, get new chart data for the selected type
+    if (submissionData) {
+      const newChartData = submissionData.getChartData(newChartType);
+      setChartData(newChartData);
+      console.log(`New ${newChartType} data:`, newChartData);
+    }
   };
 
   return (
     <div className="dash-root">
-      <Sidebar onDataSubmit={handleDataSubmit} />
+      <Sidebar 
+        csvFilename="/data-1757995711104.csv"
+        onDataSubmit={handleDataSubmit} 
+      />
       <div className="dash-main">
         <Topbar tab={tab} setTab={setTab} onChatbot={() => setChatbotOpen(true)} />
         <div className="dash-content">
@@ -63,7 +96,7 @@ export default function App() {
                 open={chartTypeOpen}
                 setOpen={setChartTypeOpen}
                 chartType={chartType}
-                setChartType={setChartType}
+                setChartType={handleChartTypeChange} // Updated to use our custom handler
               />
             )}
 
@@ -73,6 +106,7 @@ export default function App() {
               chartData={chartData}
               hasChartData={hasChartData}
               formData={formData}
+              selectedRow={selectedRow} // Pass selected row data
             />
           </div>
 
@@ -80,7 +114,7 @@ export default function App() {
             chatbotOpen={chatbotOpen}
             setChatbotOpen={setChatbotOpen}
             chartType={chartType}
-            setChartType={setChartType}
+            setChartType={handleChartTypeChange} // Updated to use our custom handler
           />
 
           {chatbotOpen && (
